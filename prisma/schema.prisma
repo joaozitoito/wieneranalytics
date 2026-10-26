@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id        String @id
+  name      String
+  mode      String
+  accounts  SocialAccount[]
+  leads     LeadSummary[]
+  imports   ImportedDataset[]
+  campaigns Campaign[]
+}
+
+model SocialAccount {
+  id          String @id
+  workspaceId String
+  username    String
+  providerId  String?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  snapshots   AccountInsightSnapshot[]
+  media       Media[]
+  connection  IntegrationConnection?
+  syncJobs    SyncJob[]
+
+  @@unique([workspaceId, username])
+}
+
+model AccountInsightSnapshot {
+  id              String @id @default(cuid())
+  accountId       String
+  dedupeKey       String @unique
+  source          String
+  collectedAt     DateTime @default(now())
+  measuredOn      String
+  periodStart     String?
+  periodEnd       String?
+  views           Int?
+  reach           Int?
+  viewers         Int?
+  interactions    Int?
+  engagedAccounts Int?
+  followers       Int?
+  profileVisits   Int?
+  linkClicks      Int?
+  addressClicks   Int?
+  notes           String?
+  importedDatasetId String?
+  updatedAt       DateTime @updatedAt
+  account         SocialAccount @relation(fields: [accountId], references: [id])
+  importedDataset ImportedDataset? @relation(fields: [importedDatasetId], references: [id])
+  revisions       SnapshotRevision[]
+
+  @@index([accountId, periodStart, periodEnd])
+  @@index([accountId, measuredOn])
+}
+
+model SnapshotRevision {
+  id          String @id @default(cuid())
+  snapshotId  String
+  changedAt   DateTime @default(now())
+  previous    String
+  snapshot    AccountInsightSnapshot @relation(fields: [snapshotId], references: [id])
+}
+
+model Media {
+  id          String @id @default(cuid())
+  accountId   String
+  providerId  String?
+  localKey    String
+  type        String
+  caption     String
+  publishedOn String?
+  traffic     String
+  permalink   String?
+  account     SocialAccount @relation(fields: [accountId], references: [id])
+  snapshots   MediaInsightSnapshot[]
+
+  @@unique([accountId, localKey])
+  @@index([accountId, publishedOn])
+}
+
+model MediaInsightSnapshot {
+  id              String @id @default(cuid())
+  mediaId         String
+  dedupeKey       String @unique
+  source          String
+  collectedAt     DateTime @default(now())
+  measuredOn      String
+  periodStart     String?
+  periodEnd       String?
+  views           Int?
+  reach           Int?
+  viewers         Int?
+  interactions    Int?
+  engagedAccounts Int?
+  likes           Int?
+  comments        Int?
+  shares          Int?
+  saves           Int?
+  replies         Int?
+  profileVisits   Int?
+  linkClicks      Int?
+  stickerClicks   Int?
+  followersGained Int?
+  forward         Int?
+  nextStory       Int?
+  exits           Int?
+  notes           String?
+  media           Media @relation(fields: [mediaId], references: [id])
+
+  @@index([mediaId, measuredOn])
+}
+
+model IntegrationConnection {
+  id             String @id @default(cuid())
+  accountId      String @unique
+  status         String @default("disconnected")
+  encryptedToken String?
+  expiresAt      DateTime?
+  lastVerifiedAt DateTime?
+  lastSyncedAt   DateTime?
+  account        SocialAccount @relation(fields: [accountId], references: [id])
+}
+
+model SyncJob {
+  id          String @id @default(cuid())
+  accountId   String
+  startedAt   DateTime @default(now())
+  finishedAt  DateTime?
+  status      String
+  inserted    Int @default(0)
+  updated     Int @default(0)
+  error       String?
+  account     SocialAccount @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, startedAt])
+}
+
+model Campaign {
+  id          String @id
+  workspaceId String
+  name        String
+  status      String
+  objective   String
+  audience    String?
+  dailyBudgetCents Int?
+  plannedDays Int?
+  spendCents  Int?
+  conversations Int?
+  source      String
+  collectedAt DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model LeadSummary {
+  id          String @id @default(cuid())
+  workspaceId String
+  date        String
+  channel     String
+  contacts    Int?
+  attributedContacts Int?
+  scheduled   Int?
+  attended    Int?
+  closed      Int?
+  source      String
+  collectedAt DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@unique([workspaceId, date, channel])
+  @@index([workspaceId, date])
+}
+
+model ImportedDataset {
+  id          String @id @default(cuid())
+  workspaceId String
+  filename    String
+  sha256      String
+  createdAt   DateTime @default(now())
+  inserted    Int
+  skipped     Int
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  snapshots   AccountInsightSnapshot[]
+
+  @@index([workspaceId, sha256])
+}
